@@ -4,6 +4,7 @@ import os
 
 class YTDLPHandler:
     def analyze_video(self, url):
+        self.last_url = url
         ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -27,6 +28,16 @@ class YTDLPHandler:
                 'formats': formats,
             }
 
+    def is_video_only(self, format_id):
+        # Check if the format_id is video-only (vcodec not 'none', acodec is 'none')
+        ydl_opts = {'quiet': True, 'skip_download': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(self.last_url, download=False)
+            for f in info['formats']:
+                if f['format_id'] == str(format_id):
+                    return f.get('vcodec') != 'none' and f.get('acodec') == 'none'
+        return False
+
     def download_video(self, url, format_id):
         import re
         temp_dir = tempfile.mkdtemp()
@@ -39,6 +50,9 @@ class YTDLPHandler:
             'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
             'quiet': True,
         }
+        # If format_id is video-only, merge with bestaudio
+        if self.is_video_only(format_id):
+            format_id = f"{format_id}+bestaudio/best"
         if merge_output:
             ydl_opts['merge_output_format'] = merge_output
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
