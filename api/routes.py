@@ -24,6 +24,16 @@ def process():
         # Download mode
         try:
             file_path, file_name = yt_dlp_handler.download_video(video_url, format_id)
+            import os, time
+
+            # Wait up to 30 seconds for file to exist and be non-empty
+            for _ in range(30):
+                if os.path.exists(file_path) and os.path.getsize(file_path) > 1024:
+                    break
+                time.sleep(1)
+            else:
+                return jsonify({'error': 'File not ready or download failed'}), 500
+
             return send_file(file_path, as_attachment=True, download_name=file_name)
         except Exception as e:
             print("Download error:", e)

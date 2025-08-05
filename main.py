@@ -1,11 +1,47 @@
-from flask import Flask
-from flask_cors import CORS
-from api.routes import api
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
+from downloader.yt_dlp_handler import YTDLPHandler
 import os
+import time
 
-app = Flask(__name__)
-CORS(app)
-app.register_blueprint(api)
+app = FastAPI()
+yt_dlp_handler = YTDLPHandler()
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+@app.post("/process")
+async def process(request: Request):
+    data = await request.json()
+    video_url = data.get("url")
+    format_id = data.get("format_id")
+
+    if not video_url:
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    if not format_id:
+        # Analyze mode
+        try:
+            metadata = yt_dlp_handler.analyze_video(video_url)
+            return JSONResponse(content=metadata)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # Download mode
+        try:
+            file_path, file_name = yt_dlp_handler.download_video(video_url, format_id)
+            # Wait up to 30 seconds for file to exist and be non-empty
+            for _ in range(30):
+                if os.path.exists(file_path) and os.path.getsize(file_path) > 1024:
+                    break
+                time.sleep(1)
+            else:
+                raise HTTPException(status_code=500, detail="File not ready or download failed")
+
+            def iterfile():
+                with open(file_path, "rb") as f:
+                    while chunk := f.read(1024 * 1024):
+                        yield chunk
+
+            response = StreamingResponse(iterfile(), media_type="application/octet-stream")
+            response.headers["Content-Disposition"] = f'attachment; filename="{file_name}"'
+            return response
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
