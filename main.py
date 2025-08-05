@@ -1,11 +1,21 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from downloader.yt_dlp_handler import YTDLPHandler
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import time
 
 app = FastAPI()
 yt_dlp_handler = YTDLPHandler()
+
+# Add this block after app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Or specify your frontend URL instead of "*"
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/process")
 async def process(request: Request):
