@@ -1,4 +1,5 @@
 Flask
+uvicorn
 flask-cors
 flasgger
 yt-dlp
