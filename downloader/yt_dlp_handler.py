@@ -41,7 +41,6 @@ class YTDLPHandler:
     def download_video(self, url, format_id):
         import re
         temp_dir = tempfile.mkdtemp()
-        # If merging is needed, force mp4 output
         merge_output = None
         if '+' in str(format_id) or re.search(r'bestaudio', str(format_id)):
             merge_output = 'mp4'
@@ -61,7 +60,9 @@ class YTDLPHandler:
                 if key in info and not isinstance(info[key], str):
                     info[key] = str(info[key])
             filename = ydl.prepare_filename(info)
-            # If merged, the extension may be changed to .mp4
             if merge_output:
                 filename = os.path.splitext(filename)[0] + '.mp4'
+        # --- Robust file check ---
+        if not os.path.exists(filename) or os.path.getsize(filename) < 1024 * 1024:
+            raise Exception("Download failed or file is too small/corrupted.")
         return filename, os.path.basename(filename)
